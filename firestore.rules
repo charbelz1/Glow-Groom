@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: services
+    // Fields: name (string), price (number), cost (number)
+    //
+    // Collection: products
+    // Fields: name (string), price (number), cost (number), quantity (number)
+    //
+    // Collection: employees
+    // Fields: name (string), role (string)
+    //
+    // Collection: customers
+    // Fields: firstName (string), lastName (string), phone (string)
+    //
+    // Collection: appointments
+    // Fields: customerName (string), serviceId (string), employeeId (string), dateTime (string), status (string)
+    //
+    // Collection: sales
+    // Fields: customerName (string), items (list), totalAmount (number), totalCost (number), employeeId (string), timestamp (string), dayId (string)
+    //
+    // Collection: days
+    // Fields: date (string), isClosed (bool), openingBalance (number), closingBalance (number)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "charbelhzayed@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll(['name', 'price', 'cost']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price is number && data.price >= 0 &&
+             data.cost is number && data.cost >= 0;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'cost', 'quantity']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price is number && data.price >= 0 &&
+             data.cost is number && data.cost >= 0 &&
+             data.quantity is number && data.quantity >= 0;
+    }
+
+    function isValidEmployee(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['firstName', 'lastName', 'phone']) &&
+             data.firstName is string && data.firstName.size() > 0 && data.firstName.size() < 50 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() < 50 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() < 20;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['customerName', 'serviceId', 'employeeId', 'dateTime', 'status']) &&
+             data.customerName is string && data.customerName.size() < 100 &&
+             data.serviceId is string &&
+             data.employeeId is string &&
+             data.dateTime is string &&
+             data.status in ['scheduled', 'completed', 'cancelled'];
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['items', 'totalAmount', 'totalCost', 'timestamp', 'dayId']) &&
+             data.items is list &&
+             data.totalAmount is number &&
+             data.totalCost is number &&
+             data.timestamp is string &&
+             data.dayId is string;
+    }
+
+    function isValidDay(data) {
+      return data.keys().hasAll(['date', 'isClosed', 'openingBalance']) &&
+             data.date is string &&
+             data.isClosed is bool &&
+             data.openingBalance is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+
+    match /services/{serviceId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidService(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /employees/{employeeId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidEmployee(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidCustomer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidAppointment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidSale(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /days/{dayId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidDay(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
